@@ -1,0 +1,7 @@
+Crawler.ipynb
+*.log
+__pycache__
+*.pyc
+Reacher_Windows_x86_64
+*~
+.ipynb_checkpoints

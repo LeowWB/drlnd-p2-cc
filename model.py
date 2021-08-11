@@ -22,9 +22,9 @@ class Actor(nn.Module):
         """
         super(Actor, self).__init__()
         self.seed = torch.manual_seed(seed)
-        self.fc1 = nn.Linear(state_size, 32)
-        self.fc2 = nn.Linear(32, 16)
-        self.fc3 = nn.Linear(16, action_size)
+        self.fc1 = nn.Linear(state_size, 256)
+        self.fc2 = nn.Linear(256, 64)
+        self.fc3 = nn.Linear(64, action_size)
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -36,7 +36,7 @@ class Actor(nn.Module):
         """Build an actor (policy) network that maps states -> actions."""
         x = F.leaky_relu(self.fc1(state))
         x = F.leaky_relu(self.fc2(x))
-        return F.tanh(self.fc3(x)) * 0.33
+        return F.tanh(self.fc3(x)) * 0.2
 
 
 class Critic(nn.Module):
@@ -52,9 +52,9 @@ class Critic(nn.Module):
         """
         super(Critic, self).__init__()
         self.seed = torch.manual_seed(seed)
-        self.fcs1 = nn.Linear(state_size, 32)
-        self.fc2 = nn.Linear(32+action_size, 16)
-        self.fc3 = nn.Linear(16, 1)
+        self.fcs1 = nn.Linear(state_size, 256)
+        self.fc2 = nn.Linear(256+action_size, 64)
+        self.fc3 = nn.Linear(64, 1)
         self.reset_parameters()
 
     def reset_parameters(self):

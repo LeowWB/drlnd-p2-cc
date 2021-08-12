@@ -4,7 +4,7 @@
 [image2]: https://user-images.githubusercontent.com/10624937/43851646-d899bf20-9b00-11e8-858c-29b5c2c94ccc.png "Crawler"
 
 # THER'S LIKE 1009932021 TODOS HERE SO CTRL F
-
+btw say we solved the 1 agent one. don't have 20 as an otpion.
 
 # Project 2: Continuous Control
 

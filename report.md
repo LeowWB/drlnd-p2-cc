@@ -1,5 +1,14 @@
 ## Report
 
+
+
+
+
+to say in report: state preprocessing
+experience more, update less but in one chunk.
+say i solved the 1 agent one.
+
+
 ### Learning Algorithm
 
 This agent uses the DDPG (Deep Deterministic Policy Gradient) architecture, which is a subset of actor-critic methods. In this architecture, the actor deterministically approximates the optimal policy, mapping states to actions. Meanwhile the critic uses the actor's best believed action to approximate the optimal action value function, thus mapping (state, action) pairs to Q-values. 

@@ -9,13 +9,13 @@ import torch
 import torch.nn.functional as F
 import torch.optim as optim
 
-BUFFER_SIZE = 10000  # replay buffer size
+BUFFER_SIZE = (int)(1e6)  # replay buffer size
 BATCH_SIZE = 128        # minibatch size
 GAMMA = 0.99            # discount factor
-TAU = 9e-4              # for soft update of target parameters
+TAU = 1e-3              # for soft update of target parameters
 LR_ACTOR = 1e-4         # learning rate of the actor 
-LR_CRITIC = 3e-4        # learning rate of the critic
-WEIGHT_DECAY = 0.0001   # L2 weight decay
+LR_CRITIC = 1e-3        # learning rate of the critic
+WEIGHT_DECAY = 0   # L2 weight decay
 LEARN_PERIOD = 500
 TIMES_TO_LEARN = 11
 ACTION_PENALTY = 0.1
@@ -160,8 +160,8 @@ class Agent():
         if radius_hand < 7:
             reward -= 0.5
         '''
-        reward -= elbow_error**3
-        reward -= (hand_error**3)/3
+        #reward -= elbow_error**3
+        #reward -= (hand_error**3)/3
         self.memory.add(state, action, reward, next_state, done)
         self.step_in_ep += 1
         
@@ -187,7 +187,7 @@ class Agent():
         self.actor_local.train()
         if add_noise:
             action += np.random.normal(np.zeros([4]), np.array([self.noise_std]*4))
-            self.noise_std *= 0.99999
+            self.noise_std *= 0.999
             #action += self.noise.sample()
         return np.clip(action, -1, 1)
 

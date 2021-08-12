@@ -9,15 +9,15 @@ import torch
 import torch.nn.functional as F
 import torch.optim as optim
 
-BUFFER_SIZE = 20000  # replay buffer size
+BUFFER_SIZE = 10000  # replay buffer size
 BATCH_SIZE = 128        # minibatch size
 GAMMA = 0.99            # discount factor
-TAU = 1e-3              # for soft update of target parameters
-LR_ACTOR = 2e-4         # learning rate of the actor 
-LR_CRITIC = 5e-4        # learning rate of the critic
+TAU = 9e-4              # for soft update of target parameters
+LR_ACTOR = 1e-4         # learning rate of the actor 
+LR_CRITIC = 3e-4        # learning rate of the critic
 WEIGHT_DECAY = 0.0001   # L2 weight decay
-LEARN_PERIOD = 400
-TIMES_TO_LEARN = 10
+LEARN_PERIOD = 500
+TIMES_TO_LEARN = 11
 ACTION_PENALTY = 0.1
 DIST_CHANGE_MODIFIER = 0.01
 BAD_HEIGHT_MODIFIER = 0.05
@@ -52,7 +52,7 @@ class Agent():
         self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=LR_CRITIC, weight_decay=WEIGHT_DECAY)
 
         # Noise process
-        self.noise_std = 0.06
+        self.noise_std = 0.3
         #self.noise = np.random.normal(np.zeros([4]), np.array([0.2]*4))
         #self.noise = OUNoise(action_size, random_seed)
 
@@ -90,6 +90,8 @@ class Agent():
         old_z_ball = float(state[:,27])
         new_x_ball = float(next_state[:,26])
         new_z_ball = float(next_state[:,27])
+        new_pos_ball = np.array([new_x_ball, 0, new_z_ball])
+        elbow_target = np.array([new_x_ball/2, -2, new_z_ball/2])
         
         distance_traveled_ball = ((new_x_ball-old_x_ball)**2 + (new_z_ball-old_z_ball)**2) ** 0.5
         
@@ -99,10 +101,13 @@ class Agent():
         new_x_hand = float(next_state[:,13])
         new_y_hand = float(next_state[:,14])
         new_z_hand = float(next_state[:,15])
+        new_pos_hand = np.array([new_x_hand, new_y_hand, new_z_hand])
         
         radius_sq_hand = new_x_hand**2 + new_z_hand**2
         radius_hand = radius_sq_hand**0.5
         distance_traveled_hand = ((new_x_hand-old_x_hand)**2 + (new_y_hand-old_y_hand)**2 + (new_z_hand-old_z_hand)**2) ** 0.5
+        
+        hand_from_ball_hor_dist = ((new_x_hand-new_x_ball)**2 + (new_z_hand-new_z_ball)**2) ** 0.5
         
         old_x_elbow = float(state[:,0])
         old_y_elbow = float(state[:,1])
@@ -110,31 +115,53 @@ class Agent():
         new_x_elbow = float(next_state[:,0])
         new_y_elbow = float(next_state[:,1])
         new_z_elbow = float(next_state[:,2])
+        new_pos_elbow = np.array([new_x_elbow, new_y_elbow, new_z_elbow])
         
         radius_sq_elbow = new_x_elbow**2 + new_z_elbow**2
         radius_elbow = radius_sq_elbow**0.5
         distance_traveled_elbow = ((new_x_elbow-old_x_elbow)**2 + (new_y_elbow-old_y_elbow)**2 + (new_z_elbow-old_z_elbow)**2) ** 0.5
         
+        elbow_error = np.linalg.norm(new_pos_elbow - elbow_target)
+        hand_error = np.linalg.norm(new_pos_hand - new_pos_elbow + elbow_target - new_pos_ball)
+        
+        '''
         if new_y_hand < 0 and new_y_hand > -0.2:
             reward += 0.02
             if radius_hand < 8 and radius_hand > 7.8:
                 reward += 0.1
         
         if new_y_elbow > -1.5:
-            reward -= 2
+            reward -= 1
+            
+        if new_y_elbow < -2.5:
+            reward -= 1
             
         if radius_elbow > 2.5:
-            reward -= 2
+            reward -= 1
+        
+        if radius_elbow < 1.5:
+            reward -= 1
+            
+        if radius_hand - radius_elbow < 0.25:
+            reward -= 1
+        
+        if hand_from_ball_hor_dist > 4:
+            reward -= 0.75
             
         if distance_traveled_hand - distance_traveled_ball > 0.1:
-            reward -= 1.5
+            reward -= 0.75
             
-        if new_y_hand < new_y_elbow:
-            reward -= 0.75
+        if new_y_hand < -0.5:
+            reward -= 0.5
+            
+        if new_y_hand > 0.5:
+            reward -= 0.5
         
-        if radius_hand - radius_elbow < 0.25:
-            reward -= 0.75
-           
+        if radius_hand < 7:
+            reward -= 0.5
+        '''
+        reward -= elbow_error**3
+        reward -= (hand_error**3)/3
         self.memory.add(state, action, reward, next_state, done)
         self.step_in_ep += 1
         
@@ -162,7 +189,7 @@ class Agent():
             action += np.random.normal(np.zeros([4]), np.array([self.noise_std]*4))
             self.noise_std *= 0.99999
             #action += self.noise.sample()
-        return np.clip(action, -0.2, 0.2)
+        return np.clip(action, -1, 1)
 
     def reset(self):
         self.ep_count += 1

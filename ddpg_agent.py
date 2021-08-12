@@ -9,18 +9,15 @@ import torch
 import torch.nn.functional as F
 import torch.optim as optim
 
-BUFFER_SIZE = (int)(1e6)  # replay buffer size
+BUFFER_SIZE = (int)(1e6)# replay buffer size
 BATCH_SIZE = 128        # minibatch size
 GAMMA = 0.99            # discount factor
 TAU = 1e-3              # for soft update of target parameters
 LR_ACTOR = 1e-4         # learning rate of the actor 
 LR_CRITIC = 1e-3        # learning rate of the critic
-WEIGHT_DECAY = 0   # L2 weight decay
+WEIGHT_DECAY = 0        # L2 weight decay
 LEARN_PERIOD = 500
 TIMES_TO_LEARN = 11
-ACTION_PENALTY = 0.1
-DIST_CHANGE_MODIFIER = 0.01
-BAD_HEIGHT_MODIFIER = 0.05
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(f'Using this device: {device}')
@@ -51,119 +48,17 @@ class Agent():
         self.critic_target = Critic(state_size, action_size, random_seed).to(device)
         self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=LR_CRITIC, weight_decay=WEIGHT_DECAY)
 
-        # Noise process
+        # Noise
         self.noise_std = 0.3
-        #self.noise = np.random.normal(np.zeros([4]), np.array([0.2]*4))
-        #self.noise = OUNoise(action_size, random_seed)
 
         # Replay memory
         self.memory = ReplayBuffer(action_size, BUFFER_SIZE, BATCH_SIZE, random_seed)
         self.time_since_last_learn = 0
-        
-        self.ep_count = 0
     
     def step(self, state, action, reward, next_state, done):
         """Save experience in replay memory, and use random sample from buffer to learn."""
         # Save experience / reward
-        '''
-        dist_1 = state[:,13] - state[:,26]
-        dist_2 = state[:,15] - state[:,27]
-        dist_3 = state[:,14]
-        total_dist = np.sum(np.power(np.power(dist_1, 2) + np.power(dist_2, 2) + np.power(dist_3, 2), 0.5))
-        
-        dist_1 = next_state[:,13] - next_state[:,26]
-        dist_2 = next_state[:,15] - next_state[:,27]
-        dist_3 = next_state[:,14]
-        total_next_dist = np.sum(np.power(np.power(dist_1, 2) + np.power(dist_2, 2) + np.power(dist_3, 2), 0.5))
-        
-        dist_change = total_next_dist - total_dist
-        dist_change *= DIST_CHANGE_MODIFIER
-
-        bad_height_penalty = np.sum(np.abs(next_state[:,14])) * BAD_HEIGHT_MODIFIER
-        
-        self.memory.add(state, action, reward - dist_change - bad_height_penalty, next_state, done)
-        '''
-        # reward is a scalar...
-        # and the shape is a singleton array
-        
-        old_x_ball = float(state[:,26])
-        old_z_ball = float(state[:,27])
-        new_x_ball = float(next_state[:,26])
-        new_z_ball = float(next_state[:,27])
-        new_pos_ball = np.array([new_x_ball, 0, new_z_ball])
-        elbow_target = np.array([new_x_ball/2, -2, new_z_ball/2])
-        
-        distance_traveled_ball = ((new_x_ball-old_x_ball)**2 + (new_z_ball-old_z_ball)**2) ** 0.5
-        
-        old_x_hand = float(state[:,13])
-        old_y_hand = float(state[:,14])
-        old_z_hand = float(state[:,15])
-        new_x_hand = float(next_state[:,13])
-        new_y_hand = float(next_state[:,14])
-        new_z_hand = float(next_state[:,15])
-        new_pos_hand = np.array([new_x_hand, new_y_hand, new_z_hand])
-        
-        radius_sq_hand = new_x_hand**2 + new_z_hand**2
-        radius_hand = radius_sq_hand**0.5
-        distance_traveled_hand = ((new_x_hand-old_x_hand)**2 + (new_y_hand-old_y_hand)**2 + (new_z_hand-old_z_hand)**2) ** 0.5
-        
-        hand_from_ball_hor_dist = ((new_x_hand-new_x_ball)**2 + (new_z_hand-new_z_ball)**2) ** 0.5
-        
-        old_x_elbow = float(state[:,0])
-        old_y_elbow = float(state[:,1])
-        old_z_elbow = float(state[:,2])
-        new_x_elbow = float(next_state[:,0])
-        new_y_elbow = float(next_state[:,1])
-        new_z_elbow = float(next_state[:,2])
-        new_pos_elbow = np.array([new_x_elbow, new_y_elbow, new_z_elbow])
-        
-        radius_sq_elbow = new_x_elbow**2 + new_z_elbow**2
-        radius_elbow = radius_sq_elbow**0.5
-        distance_traveled_elbow = ((new_x_elbow-old_x_elbow)**2 + (new_y_elbow-old_y_elbow)**2 + (new_z_elbow-old_z_elbow)**2) ** 0.5
-        
-        elbow_error = np.linalg.norm(new_pos_elbow - elbow_target)
-        hand_error = np.linalg.norm(new_pos_hand - new_pos_elbow + elbow_target - new_pos_ball)
-        
-        '''
-        if new_y_hand < 0 and new_y_hand > -0.2:
-            reward += 0.02
-            if radius_hand < 8 and radius_hand > 7.8:
-                reward += 0.1
-        
-        if new_y_elbow > -1.5:
-            reward -= 1
-            
-        if new_y_elbow < -2.5:
-            reward -= 1
-            
-        if radius_elbow > 2.5:
-            reward -= 1
-        
-        if radius_elbow < 1.5:
-            reward -= 1
-            
-        if radius_hand - radius_elbow < 0.25:
-            reward -= 1
-        
-        if hand_from_ball_hor_dist > 4:
-            reward -= 0.75
-            
-        if distance_traveled_hand - distance_traveled_ball > 0.1:
-            reward -= 0.75
-            
-        if new_y_hand < -0.5:
-            reward -= 0.5
-            
-        if new_y_hand > 0.5:
-            reward -= 0.5
-        
-        if radius_hand < 7:
-            reward -= 0.5
-        '''
-        #reward -= elbow_error**3
-        #reward -= (hand_error**3)/3
         self.memory.add(state, action, reward, next_state, done)
-        self.step_in_ep += 1
         
         # Learn, if enough samples are available in memory
         if len(self.memory) > BATCH_SIZE:
@@ -188,15 +83,8 @@ class Agent():
         if add_noise:
             action += np.random.normal(np.zeros([4]), np.array([self.noise_std]*4))
             self.noise_std *= 0.999
-            #action += self.noise.sample()
         return np.clip(action, -1, 1)
-
-    def reset(self):
-        self.ep_count += 1
-        self.step_in_ep = 0
-        # only need the below line for OUNoise
-        #self.noise.reset()
-
+    
     def learn(self, experiences, gamma):
         """Update policy and value parameters using given batch of experience tuples.
         Q_targets = r + γ * critic_target(next_state, actor_target(next_state))
@@ -228,16 +116,8 @@ class Agent():
         # ---------------------------- update actor ---------------------------- #
         # Compute actor loss
         actions_pred = self.actor_local(states)
-        # in a case where the model just flails, first loss term is usually about -4. second is usually about 0.77 (before weighting)
         actor_loss = -self.critic_local(states, actions_pred).mean()
         
-        # 14 seems to be height. 13 and 15 are horizontal coords
-        #actor_loss += torch.sum(torch.where(torch.abs(next_states[:,13])>9, torch.abs(next_states[:,13]), torch.zeros(next_states[:,13].shape, device=device)))
-        #actor_loss += torch.sum(torch.where(torch.abs(next_states[:,15])>9, torch.abs(next_states[:,15]), torch.zeros(next_states[:,15].shape, device=device)))
-        #actor_loss += torch.sum(torch.abs(next_states[:,14]))
-        
-        # + ACTION_PENALTY * torch.norm(actions_pred)
-        # Minimize the loss
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
         self.actor_optimizer.step()
@@ -258,28 +138,6 @@ class Agent():
         """
         for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
             target_param.data.copy_(tau*local_param.data + (1.0-tau)*target_param.data)
-
-class OUNoise:
-    """Ornstein-Uhlenbeck process."""
-
-    def __init__(self, size, seed, mu=0., theta=0.15, sigma=0.2):
-        """Initialize parameters and noise process."""
-        self.mu = mu * np.ones(size)
-        self.theta = theta
-        self.sigma = sigma
-        self.seed = random.seed(seed)
-        self.reset()
-
-    def reset(self):
-        """Reset the internal state (= noise) to mean (mu)."""
-        self.state = copy.copy(self.mu)
-
-    def sample(self):
-        """Update internal state and return it as a noise sample."""
-        x = self.state
-        dx = self.theta * (self.mu - x) + self.sigma * np.array([random.random() for i in range(len(x))])
-        self.state = x + dx
-        return self.state * 0.33
 
 class ReplayBuffer:
     """Fixed-size buffer to store experience tuples."""
